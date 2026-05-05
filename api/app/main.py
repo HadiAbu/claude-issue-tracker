@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,10 +12,14 @@ from app.seed import seed_if_empty
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    await asyncio.to_thread(Base.metadata.create_all, engine)
     if settings.seed_on_start:
-        with SessionLocal() as db:
-            seed_if_empty(db)
+
+        def _seed() -> None:
+            with SessionLocal() as db:
+                seed_if_empty(db)
+
+        await asyncio.to_thread(_seed)
     yield
 
 
@@ -22,7 +27,7 @@ app = FastAPI(title="Issue Tracker API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
