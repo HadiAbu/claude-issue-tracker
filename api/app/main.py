@@ -1,18 +1,26 @@
 import asyncio
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+from alembic import command as alembic_command
+from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.database import Base, SessionLocal, engine
+from app.database import SessionLocal
 from app.routers import auth, comments, issues, projects, stats
 from app.seed import seed_if_empty
 
 
+def _migrate() -> None:
+    cfg = Config(str(Path(__file__).parent.parent / "alembic.ini"))
+    alembic_command.upgrade(cfg, "head")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await asyncio.to_thread(Base.metadata.create_all, engine)
+    await asyncio.to_thread(_migrate)
     if settings.seed_on_start:
 
         def _seed() -> None:

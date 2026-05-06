@@ -64,8 +64,8 @@ class Issue(Base):
     )
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(Text, default="")
-    status: Mapped[Status] = mapped_column(default=Status.todo, index=True)
-    priority: Mapped[Priority] = mapped_column(default=Priority.medium)
+    status: Mapped[Status] = mapped_column(String(20), default=Status.todo, index=True)
+    priority: Mapped[Priority] = mapped_column(String(20), default=Priority.medium)
     assignee: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(

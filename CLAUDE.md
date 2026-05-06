@@ -46,7 +46,14 @@ FastAPI app with SQLAlchemy (sync ORM, psycopg v3). Schema:
 
 - **Project** → has many **Issue** → has many **Comment** (all cascade-delete)
 - `Issue.closed_at` is set automatically when `status` transitions to `done`, and cleared when transitioning away — this logic lives in `routers/issues.py:update_issue`, not in the model.
-- DB tables are created at startup via `Base.metadata.create_all`. There are no migration files (no Alembic). Schema changes require `docker compose down -v && docker compose up --build`.
+- DB schema is managed by **Alembic**. On startup `main.py` calls `alembic upgrade head` automatically, so tables are always up to date.
+- Migration files live in `api/alembic/versions/`. Generate a new one after changing `models.py`:
+  ```bash
+  docker compose exec api alembic revision --autogenerate -m "describe the change"
+  docker compose exec api alembic upgrade head   # applied automatically on restart too
+  docker compose exec api alembic downgrade -1   # roll back one revision
+  ```
+- A fresh volume (no migration history) still works — Alembic applies all revisions from scratch.
 - `SEED_ON_START=true` triggers `seed.py` to populate sample data on first boot (only if tables are empty).
 - Settings come from `app/config.py` (`pydantic-settings`), reading `.env` — `DATABASE_URL` and `SEED_ON_START`.
 
