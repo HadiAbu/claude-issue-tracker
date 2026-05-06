@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type Issue, type Priority, type Status } from '../api'
+import ConfirmModal, { XIcon } from '../components/ConfirmModal'
 
 const COLUMNS: { key: Status; label: string }[] = [
   { key: 'todo', label: 'To do' },
@@ -11,6 +12,12 @@ const COLUMNS: { key: Status; label: string }[] = [
 
 const cycle = (s: Status): Status =>
   s === 'todo' ? 'in_progress' : s === 'in_progress' ? 'done' : 'todo'
+
+const NEXT_STATUS_LABEL: Record<Status, string> = {
+  todo: 'Move to In Progress',
+  in_progress: 'Move to Done',
+  done: 'Move to To Do',
+}
 
 function EditIcon() {
   return (
@@ -57,10 +64,12 @@ export default function Board() {
 
   const [title, setTitle] = useState('')
   const [showArchived, setShowArchived] = useState(false)
+  const [viewing, setViewing] = useState<Issue | null>(null)
   const [editing, setEditing] = useState<Issue | null>(null)
   const [editForm, setEditForm] = useState<EditForm>({
     title: '', description: '', priority: 'medium', assignee: '',
   })
+  const [confirmIssueId, setConfirmIssueId] = useState<number | null>(null)
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['issues', id] })
@@ -80,7 +89,11 @@ export default function Board() {
 
   const remove = useMutation({
     mutationFn: (issueId: number) => api.deleteIssue(issueId),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate()
+      setConfirmIssueId(null)
+      setViewing(null)
+    },
   })
 
   function openEdit(issue: Issue) {
@@ -91,6 +104,7 @@ export default function Board() {
       assignee: issue.assignee ?? '',
     })
     setEditing(issue)
+    setViewing(null)
   }
 
   function saveEdit() {
@@ -99,12 +113,6 @@ export default function Board() {
       { issueId: editing.id, data: { ...editForm, assignee: editForm.assignee || null } },
       { onSuccess: () => setEditing(null) },
     )
-  }
-
-  function handleDelete(issueId: number) {
-    if (window.confirm('Delete this issue? This cannot be undone.')) {
-      remove.mutate(issueId)
-    }
   }
 
   const issues = issuesQ.data ?? []
@@ -150,8 +158,8 @@ export default function Board() {
                 <div className="issue-header">
                   <div
                     className="title"
-                    onClick={() => update.mutate({ issueId: issue.id, data: { status: cycle(issue.status) } })}
-                    title="Click to advance status"
+                    onClick={() => setViewing(issue)}
+                    title="Click to view details"
                   >
                     {issue.title}
                   </div>
@@ -173,7 +181,7 @@ export default function Board() {
                     <button
                       className="icon-btn danger"
                       data-tooltip="Delete"
-                      onClick={() => handleDelete(issue.id)}
+                      onClick={() => setConfirmIssueId(issue.id)}
                     >
                       <TrashIcon />
                     </button>
@@ -189,10 +197,60 @@ export default function Board() {
         ))}
       </div>
 
+      {/* Issue detail modal */}
+      {viewing && (
+        <div className="modal-overlay" onClick={() => setViewing(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ width: 520 }}>
+            <div className="modal-header">
+              <h3>{viewing.title}</h3>
+              <button className="icon-btn" onClick={() => setViewing(null)}><XIcon /></button>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              <span className="badge">{viewing.status.replace('_', ' ')}</span>
+              <span className={`badge priority-${viewing.priority}`}>{viewing.priority}</span>
+            </div>
+            {viewing.description && (
+              <p style={{ color: '#c8ccd3', margin: '0 0 12px', lineHeight: 1.6 }}>{viewing.description}</p>
+            )}
+            <p style={{ fontSize: 13, color: '#8a8f9b', margin: '0 0 20px' }}>
+              {viewing.assignee ? `Assigned to ${viewing.assignee}` : 'Unassigned'}
+              {' · '}
+              Created {new Date(viewing.created_at).toLocaleDateString()}
+            </p>
+            <div className="modal-actions">
+              <button
+                className="btn btn-danger"
+                style={{ marginRight: 'auto' }}
+                onClick={() => setConfirmIssueId(viewing.id)}
+              >
+                Delete
+              </button>
+              <button className="btn-ghost" onClick={() => openEdit(viewing)}>Edit</button>
+              <button
+                className="btn"
+                disabled={update.isPending}
+                onClick={() => {
+                  update.mutate(
+                    { issueId: viewing.id, data: { status: cycle(viewing.status) } },
+                    { onSuccess: () => setViewing(null) },
+                  )
+                }}
+              >
+                {NEXT_STATUS_LABEL[viewing.status]}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit modal */}
       {editing && (
         <div className="modal-overlay" onClick={() => setEditing(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3>Edit Issue</h3>
+            <div className="modal-header">
+              <h3>Edit Issue</h3>
+              <button className="icon-btn" onClick={() => setEditing(null)}><XIcon /></button>
+            </div>
             <div className="form-row">
               <label>Title</label>
               <input
@@ -240,6 +298,16 @@ export default function Board() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Delete confirm modal */}
+      {confirmIssueId !== null && (
+        <ConfirmModal
+          title="Delete issue"
+          message="Delete this issue? This cannot be undone."
+          onConfirm={() => remove.mutate(confirmIssueId)}
+          onCancel={() => setConfirmIssueId(null)}
+        />
       )}
     </div>
   )

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type Project } from '../api'
+import ConfirmModal from '../components/ConfirmModal'
 
 function EditIcon() {
   return (
@@ -43,6 +44,7 @@ export default function Projects() {
   const [showArchived, setShowArchived] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editForm, setEditForm] = useState({ name: '', description: '' })
+  const [confirmProject, setConfirmProject] = useState<Project | null>(null)
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['projects'] })
 
@@ -59,18 +61,12 @@ export default function Projects() {
 
   const remove = useMutation({
     mutationFn: (id: number) => api.deleteProject(id),
-    onSuccess: invalidate,
+    onSuccess: () => { invalidate(); setConfirmProject(null) },
   })
 
   function startEdit(p: Project) {
     setEditForm({ name: p.name, description: p.description })
     setEditingId(p.id)
-  }
-
-  function handleDelete(p: Project) {
-    if (window.confirm(`Delete "${p.name}"? All its issues will be permanently deleted.`)) {
-      remove.mutate(p.id)
-    }
   }
 
   const projects = projectsQ.data ?? []
@@ -204,7 +200,7 @@ export default function Projects() {
                       <button
                         className="icon-btn danger"
                         data-tooltip="Delete"
-                        onClick={() => handleDelete(p)}
+                        onClick={() => setConfirmProject(p)}
                       >
                         <TrashIcon />
                       </button>
@@ -216,6 +212,15 @@ export default function Projects() {
           </tbody>
         </table>
       </div>
+
+      {confirmProject && (
+        <ConfirmModal
+          title="Delete project"
+          message={`Delete "${confirmProject.name}"? All its issues will be permanently deleted.`}
+          onConfirm={() => remove.mutate(confirmProject.id)}
+          onCancel={() => setConfirmProject(null)}
+        />
+      )}
     </div>
   )
 }
