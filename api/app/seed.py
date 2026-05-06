@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models import Issue, Priority, Project, Status
+from app.models import Issue, Priority, Project, Status, User
 
 _TITLES = [
     "Fix layout shift on hero",
@@ -27,12 +27,21 @@ _ASSIGNEES = ["alice", "bob", "carol", "dan", None]
 
 
 def seed_if_empty(db: Session) -> None:
-    if db.query(Project).count() > 0:
+    if db.query(User).count() > 0:
         return
 
+    from app.auth import hash_password
+
+    demo_user = User(
+        email="demo@example.com",
+        hashed_password=hash_password("demo1234"),
+    )
+    db.add(demo_user)
+    db.flush()
+
     projects = [
-        Project(key="WEB", name="Marketing site", description="Public site & blog"),
-        Project(key="API", name="Core API", description="Backend services"),
+        Project(key="WEB", name="Marketing site", description="Public site & blog", owner_id=demo_user.id),
+        Project(key="API", name="Core API", description="Backend services", owner_id=demo_user.id),
     ]
     db.add_all(projects)
     db.flush()

@@ -23,10 +23,24 @@ class Priority(str, Enum):
     high = "high"
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(254), unique=True, index=True)
+    hashed_password: Mapped[str] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    projects: Mapped[list["Project"]] = relationship(
+        back_populates="owner", cascade="all, delete-orphan"
+    )
+
+
 class Project(Base):
     __tablename__ = "projects"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     key: Mapped[str] = mapped_column(String(16), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(120))
     description: Mapped[str] = mapped_column(Text, default="")
@@ -35,6 +49,7 @@ class Project(Base):
     archived: Mapped[bool] = mapped_column(default=False)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    owner: Mapped["User"] = relationship(back_populates="projects")
     issues: Mapped[list["Issue"]] = relationship(
         back_populates="project", cascade="all, delete-orphan"
     )

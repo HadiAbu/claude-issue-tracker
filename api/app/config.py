@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://tracker:tracker@db:5432/tracker"
     seed_on_start: bool = False
     cors_origins: list[str] = ["http://localhost:5173"]
+    secret_key: str = "dev-secret-key-change-in-production"
+    token_expire_hours: int = 24
 
 
 settings = Settings()

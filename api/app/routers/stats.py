@@ -1,11 +1,13 @@
 from datetime import date, timedelta
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_user
 from app.database import get_db
-from app.models import Issue, Project
+from app.models import Issue, Project, User
 from app.schemas import (
     AssigneeCount,
     PriorityCount,
@@ -16,14 +18,22 @@ from app.schemas import (
 
 router = APIRouter(prefix="/projects/{project_id}/stats", tags=["stats"])
 
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
 
 @router.get("", response_model=ProjectStats)
 def project_stats(
     project_id: int,
+    current_user: CurrentUser,
     days: int = Query(default=30, ge=1, le=365),
     db: Session = Depends(get_db),
 ):
-    if not db.get(Project, project_id):
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id, Project.owner_id == current_user.id)
+        .first()
+    )
+    if not project:
         raise HTTPException(404, "Project not found")
 
     by_status_rows = (

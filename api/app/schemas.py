@@ -5,6 +5,27 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models import Priority, Status
 
 
+# ── Auth ──────────────────────────────────────────────────────────────────────
+
+class UserCreate(BaseModel):
+    email: str = Field(min_length=1, max_length=254)
+    password: str = Field(min_length=8)
+
+
+class UserRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    email: str
+    created_at: datetime
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+
+# ── Projects ──────────────────────────────────────────────────────────────────
+
 class ProjectCreate(BaseModel):
     key: str = Field(min_length=1, max_length=16)
     name: str = Field(min_length=1, max_length=120)
@@ -20,6 +41,7 @@ class ProjectUpdate(BaseModel):
 class ProjectRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    owner_id: int
     key: str
     name: str
     description: str
@@ -28,6 +50,8 @@ class ProjectRead(BaseModel):
     archived: bool
     archived_at: datetime | None
 
+
+# ── Issues ────────────────────────────────────────────────────────────────────
 
 class IssueCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
@@ -62,6 +86,8 @@ class IssueRead(BaseModel):
     archived_at: datetime | None
 
 
+# ── Comments ──────────────────────────────────────────────────────────────────
+
 class CommentCreate(BaseModel):
     author: str = Field(min_length=1, max_length=120)
     body: str = Field(min_length=1)
@@ -75,6 +101,8 @@ class CommentRead(BaseModel):
     body: str
     created_at: datetime
 
+
+# ── Stats ─────────────────────────────────────────────────────────────────────
 
 class StatusCount(BaseModel):
     status: Status
