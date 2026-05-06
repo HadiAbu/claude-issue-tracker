@@ -33,11 +33,15 @@ export default function Dashboard() {
   const projectsQ = useQuery({ queryKey: ['projects'], queryFn: api.projects })
   const [projectId, setProjectId] = useState<number | null>(null)
 
+  const activeProjects = (projectsQ.data ?? []).filter(p => !p.archived)
+
   useEffect(() => {
-    if (!projectId && projectsQ.data?.length) {
-      setProjectId(projectsQ.data[0].id)
+    if (!projectId && activeProjects.length) {
+      setProjectId(activeProjects[0].id)
+    } else if (projectId && !activeProjects.find(p => p.id === projectId)) {
+      setProjectId(activeProjects[0]?.id ?? null)
     }
-  }, [projectsQ.data, projectId])
+  }, [activeProjects, projectId])
 
   const statsQ = useQuery({
     queryKey: ['stats', projectId],
@@ -46,7 +50,7 @@ export default function Dashboard() {
   })
 
   if (projectsQ.isLoading) return <p>Loading…</p>
-  if (!projectsQ.data?.length) return <p>No projects yet. Create one in the Projects tab.</p>
+  if (!activeProjects.length) return <p>No active projects yet. Create one in the Projects tab.</p>
 
   return (
     <div className="grid" style={{ gap: 24 }}>
@@ -56,7 +60,7 @@ export default function Dashboard() {
           value={projectId ?? ''}
           onChange={(e) => setProjectId(Number(e.target.value))}
         >
-          {projectsQ.data.map((p) => (
+          {activeProjects.map((p) => (
             <option key={p.id} value={p.id}>
               {p.key} — {p.name}
             </option>

@@ -6,6 +6,7 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   })
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
 }
 
@@ -15,6 +16,9 @@ export type Project = {
   name: string
   description: string
   created_at: string
+  updated_at: string
+  archived: boolean
+  archived_at: string | null
 }
 
 export type Status = 'todo' | 'in_progress' | 'done'
@@ -31,6 +35,8 @@ export type Issue = {
   created_at: string
   updated_at: string
   closed_at: string | null
+  archived: boolean
+  archived_at: string | null
 }
 
 export type ProjectStats = {
@@ -45,6 +51,9 @@ export const api = {
   project: (id: number) => http<Project>(`/projects/${id}`),
   createProject: (data: { key: string; name: string; description?: string }) =>
     http<Project>('/projects', { method: 'POST', body: JSON.stringify(data) }),
+  updateProject: (id: number, data: Partial<Pick<Project, 'name' | 'description' | 'archived'>>) =>
+    http<Project>(`/projects/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteProject: (id: number) => http<void>(`/projects/${id}`, { method: 'DELETE' }),
   issues: (projectId: number) => http<Issue[]>(`/projects/${projectId}/issues`),
   createIssue: (projectId: number, data: Partial<Issue> & { title: string }) =>
     http<Issue>(`/projects/${projectId}/issues`, {
@@ -53,5 +62,6 @@ export const api = {
     }),
   updateIssue: (id: number, data: Partial<Issue>) =>
     http<Issue>(`/issues/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteIssue: (id: number) => http<void>(`/issues/${id}`, { method: 'DELETE' }),
   stats: (projectId: number) => http<ProjectStats>(`/projects/${projectId}/stats`),
 }

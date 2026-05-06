@@ -11,6 +11,12 @@ class ProjectCreate(BaseModel):
     description: str = ""
 
 
+class ProjectUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    description: str | None = None
+    archived: bool | None = None
+
+
 class ProjectRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -18,6 +24,9 @@ class ProjectRead(BaseModel):
     name: str
     description: str
     created_at: datetime
+    updated_at: datetime
+    archived: bool
+    archived_at: datetime | None
 
 
 class IssueCreate(BaseModel):
@@ -34,6 +43,7 @@ class IssueUpdate(BaseModel):
     status: Status | None = None
     priority: Priority | None = None
     assignee: str | None = None
+    archived: bool | None = None
 
 
 class IssueRead(BaseModel):
@@ -48,6 +58,8 @@ class IssueRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     closed_at: datetime | None
+    archived: bool
+    archived_at: datetime | None
 
 
 class CommentCreate(BaseModel):

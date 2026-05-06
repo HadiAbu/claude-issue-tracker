@@ -48,6 +48,7 @@ def update_issue(issue_id: int, payload: IssueUpdate, db: Session = Depends(get_
         raise HTTPException(404, "Issue not found")
 
     data = payload.model_dump(exclude_unset=True)
+
     if "status" in data:
         new_status = data["status"]
         if new_status == Status.done and issue.status != Status.done:
@@ -55,9 +56,24 @@ def update_issue(issue_id: int, payload: IssueUpdate, db: Session = Depends(get_
         elif new_status != Status.done:
             issue.closed_at = None
 
+    if "archived" in data:
+        if data["archived"] and not issue.archived:
+            issue.archived_at = datetime.now(timezone.utc)
+        elif not data["archived"]:
+            issue.archived_at = None
+
     for key, value in data.items():
         setattr(issue, key, value)
 
     db.commit()
     db.refresh(issue)
     return issue
+
+
+@router.delete("/issues/{issue_id}", status_code=204)
+def delete_issue(issue_id: int, db: Session = Depends(get_db)):
+    issue = db.get(Issue, issue_id)
+    if not issue:
+        raise HTTPException(404, "Issue not found")
+    db.delete(issue)
+    db.commit()
