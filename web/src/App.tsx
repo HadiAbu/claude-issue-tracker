@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
 import Boards from './pages/Boards'
 import Board from './pages/Board'
+import Users from './pages/Users'
 import Login from './pages/Login'
 import { clearToken, getToken } from './api'
 
@@ -30,6 +31,7 @@ export default function App() {
           <NavLink to="/" end>Dashboard</NavLink>
           <NavLink to="/boards">Boards</NavLink>
           <NavLink to="/projects">Projects</NavLink>
+          <NavLink to="/users">Users</NavLink>
         </nav>
         <button className="logout-btn" onClick={logout}>Log out</button>
       </aside>
@@ -39,6 +41,7 @@ export default function App() {
           <Route path="/boards" element={<Boards />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:projectId" element={<Board />} />
+          <Route path="/users" element={<Users />} />
         </Routes>
       </main>
     </div>

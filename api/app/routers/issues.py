@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
-from app.models import Issue, Project, Status, User
+from app.models import ProjectMember, Status, User
+from app.routers.deps import get_member_issue, get_member_project
 from app.schemas import IssueCreate, IssueRead, IssueUpdate
 
 router = APIRouter(tags=["issues"])
@@ -14,32 +15,19 @@ router = APIRouter(tags=["issues"])
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
-def _get_owned_project(project_id: int, user_id: int, db: Session) -> Project:
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id, Project.owner_id == user_id)
-        .first()
-    )
-    if not project:
-        raise HTTPException(404, "Project not found")
-    return project
-
-
-def _get_owned_issue(issue_id: int, user_id: int, db: Session) -> Issue:
-    issue = (
-        db.query(Issue)
-        .join(Project, Issue.project_id == Project.id)
-        .filter(Issue.id == issue_id, Project.owner_id == user_id)
-        .first()
-    )
-    if not issue:
-        raise HTTPException(404, "Issue not found")
-    return issue
+def _assert_member(project_id: int, user_id: int, db: Session) -> None:
+    exists = db.query(ProjectMember).filter(
+        ProjectMember.project_id == project_id,
+        ProjectMember.user_id == user_id,
+    ).first()
+    if not exists:
+        raise HTTPException(400, "Assignee must be a member of this project")
 
 
 @router.get("/projects/{project_id}/issues", response_model=list[IssueRead])
 def list_issues(project_id: int, current_user: CurrentUser, db: Session = Depends(get_db)):
-    _get_owned_project(project_id, current_user.id, db)
+    get_member_project(project_id, current_user.id, db)
+    from app.models import Issue
     return (
         db.query(Issue)
         .filter(Issue.project_id == project_id)
@@ -50,7 +38,10 @@ def list_issues(project_id: int, current_user: CurrentUser, db: Session = Depend
 
 @router.post("/projects/{project_id}/issues", response_model=IssueRead, status_code=201)
 def create_issue(project_id: int, payload: IssueCreate, current_user: CurrentUser, db: Session = Depends(get_db)):
-    _get_owned_project(project_id, current_user.id, db)
+    get_member_project(project_id, current_user.id, db)
+    if payload.assignee_id is not None:
+        _assert_member(project_id, payload.assignee_id, db)
+    from app.models import Issue
     issue = Issue(project_id=project_id, **payload.model_dump())
     db.add(issue)
     db.commit()
@@ -60,13 +51,16 @@ def create_issue(project_id: int, payload: IssueCreate, current_user: CurrentUse
 
 @router.get("/issues/{issue_id}", response_model=IssueRead)
 def get_issue(issue_id: int, current_user: CurrentUser, db: Session = Depends(get_db)):
-    return _get_owned_issue(issue_id, current_user.id, db)
+    return get_member_issue(issue_id, current_user.id, db)
 
 
 @router.patch("/issues/{issue_id}", response_model=IssueRead)
 def update_issue(issue_id: int, payload: IssueUpdate, current_user: CurrentUser, db: Session = Depends(get_db)):
-    issue = _get_owned_issue(issue_id, current_user.id, db)
+    issue = get_member_issue(issue_id, current_user.id, db)
     data = payload.model_dump(exclude_unset=True)
+
+    if "assignee_id" in data and data["assignee_id"] is not None:
+        _assert_member(issue.project_id, data["assignee_id"], db)
 
     if "status" in data:
         new_status = data["status"]
@@ -91,6 +85,6 @@ def update_issue(issue_id: int, payload: IssueUpdate, current_user: CurrentUser,
 
 @router.delete("/issues/{issue_id}", status_code=204)
 def delete_issue(issue_id: int, current_user: CurrentUser, db: Session = Depends(get_db)):
-    issue = _get_owned_issue(issue_id, current_user.id, db)
+    issue = get_member_issue(issue_id, current_user.id, db)
     db.delete(issue)
     db.commit()

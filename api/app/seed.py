@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models import Issue, Priority, Project, Status, User
+from app.models import Issue, Priority, Project, ProjectMember, Status, User
 
 _TITLES = [
     "Fix layout shift on hero",
@@ -23,7 +23,13 @@ _TITLES = [
     "Audit log table",
 ]
 
-_ASSIGNEES = ["alice", "bob", "carol", "dan", None]
+_SEED_USERS = [
+    ("demo@example.com",  "Demo User", "#5b6cff"),
+    ("alice@example.com", "Alice",     "#ff8a99"),
+    ("bob@example.com",   "Bob",       "#6affb0"),
+    ("carol@example.com", "Carol",     "#ffd761"),
+    ("dan@example.com",   "Dan",       "#ff7043"),
+]
 
 
 def seed_if_empty(db: Session) -> None:
@@ -32,12 +38,15 @@ def seed_if_empty(db: Session) -> None:
 
     from app.auth import hash_password
 
-    demo_user = User(
-        email="demo@example.com",
-        hashed_password=hash_password("demo1234"),
-    )
-    db.add(demo_user)
+    users = [
+        User(email=email, hashed_password=hash_password("demo1234"), display_name=name, avatar_color=color)
+        for email, name, color in _SEED_USERS
+    ]
+    db.add_all(users)
     db.flush()
+
+    demo_user = users[0]
+    team_users = users[1:]
 
     projects = [
         Project(key="WEB", name="Marketing site", description="Public site & blog", owner_id=demo_user.id),
@@ -46,6 +55,11 @@ def seed_if_empty(db: Session) -> None:
     db.add_all(projects)
     db.flush()
 
+    for project in projects:
+        for user in users:
+            db.add(ProjectMember(project_id=project.id, user_id=user.id))
+
+    assignee_ids = [u.id for u in team_users] + [None]
     statuses = list(Status)
     priorities = list(Priority)
     now = datetime.now(timezone.utc)
@@ -53,27 +67,23 @@ def seed_if_empty(db: Session) -> None:
 
     for project in projects:
         for _ in range(40):
-            created = now - timedelta(
-                days=rng.randint(0, 29), hours=rng.randint(0, 23)
-            )
+            created = now - timedelta(days=rng.randint(0, 29), hours=rng.randint(0, 23))
             status = rng.choice(statuses)
             closed = (
                 created + timedelta(days=rng.randint(0, 5))
                 if status == Status.done
                 else None
             )
-            db.add(
-                Issue(
-                    project_id=project.id,
-                    title=rng.choice(_TITLES),
-                    description="Seeded issue.",
-                    status=status,
-                    priority=rng.choice(priorities),
-                    assignee=rng.choice(_ASSIGNEES),
-                    created_at=created,
-                    updated_at=created,
-                    closed_at=closed,
-                )
-            )
+            db.add(Issue(
+                project_id=project.id,
+                title=rng.choice(_TITLES),
+                description="Seeded issue.",
+                status=status,
+                priority=rng.choice(priorities),
+                assignee_id=rng.choice(assignee_ids),
+                created_at=created,
+                updated_at=created,
+                closed_at=closed,
+            ))
 
     db.commit()

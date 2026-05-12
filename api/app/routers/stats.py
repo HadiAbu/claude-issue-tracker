@@ -1,13 +1,14 @@
 from datetime import date, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
-from app.models import Issue, Project, User
+from app.models import Issue, User
+from app.routers.deps import get_member_project
 from app.schemas import (
     AssigneeCount,
     PriorityCount,
@@ -28,13 +29,7 @@ def project_stats(
     days: int = Query(default=30, ge=1, le=365),
     db: Session = Depends(get_db),
 ):
-    project = (
-        db.query(Project)
-        .filter(Project.id == project_id, Project.owner_id == current_user.id)
-        .first()
-    )
-    if not project:
-        raise HTTPException(404, "Project not found")
+    get_member_project(project_id, current_user.id, db)
 
     by_status_rows = (
         db.query(Issue.status, func.count(Issue.id))
@@ -53,9 +48,13 @@ def project_stats(
     by_priority = [PriorityCount(priority=p, count=c) for p, c in by_priority_rows]
 
     by_assignee_rows = (
-        db.query(Issue.assignee, func.count(Issue.id))
-        .filter(Issue.project_id == project_id, Issue.assignee.isnot(None))
-        .group_by(Issue.assignee)
+        db.query(
+            func.coalesce(User.display_name, User.email),
+            func.count(Issue.id),
+        )
+        .join(User, Issue.assignee_id == User.id)
+        .filter(Issue.project_id == project_id)
+        .group_by(User.id, User.display_name, User.email)
         .order_by(func.count(Issue.id).desc())
         .limit(10)
         .all()

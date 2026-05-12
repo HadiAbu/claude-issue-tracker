@@ -13,7 +13,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=UserRead, status_code=201)
 def register(payload: UserCreate, db: Session = Depends(get_db)):
-    user = User(email=payload.email.lower(), hashed_password=hash_password(payload.password))
+    user = User(
+        email=payload.email.lower(),
+        hashed_password=hash_password(payload.password),
+        display_name=payload.display_name,
+        avatar_color=payload.avatar_color,
+    )
     db.add(user)
     try:
         db.commit()

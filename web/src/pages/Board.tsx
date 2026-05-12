@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, type Issue, type Priority, type Status } from '../api'
+import { api, type Issue, type Priority, type Status, type User } from '../api'
+import Avatar from '../components/Avatar'
 import ConfirmModal, { XIcon } from '../components/ConfirmModal'
 
 const COLUMNS: { key: Status; label: string }[] = [
@@ -50,7 +51,7 @@ function TrashIcon() {
   )
 }
 
-type EditForm = { title: string; description: string; priority: Priority; assignee: string }
+type EditForm = { title: string; description: string; priority: Priority; assignee_id: number | null }
 
 export default function Board() {
   const { projectId } = useParams()
@@ -62,12 +63,18 @@ export default function Board() {
     queryFn: () => api.issues(id),
   })
 
+  const usersQ = useQuery({
+    queryKey: ['members', id],
+    queryFn: () => api.projectMembers(id),
+  })
+  const users: User[] = usersQ.data ?? []
+
   const [title, setTitle] = useState('')
   const [showArchived, setShowArchived] = useState(false)
   const [viewing, setViewing] = useState<Issue | null>(null)
   const [editing, setEditing] = useState<Issue | null>(null)
   const [editForm, setEditForm] = useState<EditForm>({
-    title: '', description: '', priority: 'medium', assignee: '',
+    title: '', description: '', priority: 'medium', assignee_id: null,
   })
   const [confirmIssueId, setConfirmIssueId] = useState<number | null>(null)
 
@@ -101,7 +108,7 @@ export default function Board() {
       title: issue.title,
       description: issue.description,
       priority: issue.priority,
-      assignee: issue.assignee ?? '',
+      assignee_id: issue.assignee_id,
     })
     setEditing(issue)
     setViewing(null)
@@ -110,7 +117,7 @@ export default function Board() {
   function saveEdit() {
     if (!editing) return
     update.mutate(
-      { issueId: editing.id, data: { ...editForm, assignee: editForm.assignee || null } },
+      { issueId: editing.id, data: editForm },
       { onSuccess: () => setEditing(null) },
     )
   }
@@ -187,9 +194,19 @@ export default function Board() {
                     </button>
                   </div>
                 </div>
-                <div className="meta">
-                  <span className={`badge priority-${issue.priority}`}>{issue.priority}</span>{' '}
-                  {issue.assignee ?? 'unassigned'}
+                <div className="meta" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className={`badge priority-${issue.priority}`}>{issue.priority}</span>
+                  {issue.assignee_email ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Avatar
+                        user={{ display_name: issue.assignee_email, email: issue.assignee_email, avatar_color: issue.assignee_avatar_color ?? '#5b6cff' }}
+                        size="sm"
+                      />
+                      {issue.assignee_email}
+                    </span>
+                  ) : (
+                    <span style={{ color: '#555a6b' }}>Unassigned</span>
+                  )}
                 </div>
               </div>
             ))}
@@ -213,7 +230,7 @@ export default function Board() {
               <p style={{ color: '#c8ccd3', margin: '0 0 12px', lineHeight: 1.6 }}>{viewing.description}</p>
             )}
             <p style={{ fontSize: 13, color: '#8a8f9b', margin: '0 0 20px' }}>
-              {viewing.assignee ? `Assigned to ${viewing.assignee}` : 'Unassigned'}
+              {viewing.assignee_email ? `Assigned to ${viewing.assignee_email}` : 'Unassigned'}
               {' · '}
               Created {new Date(viewing.created_at).toLocaleDateString()}
             </p>
@@ -280,11 +297,21 @@ export default function Board() {
             </div>
             <div className="form-row">
               <label>Assignee</label>
-              <input
-                value={editForm.assignee}
-                onChange={e => setEditForm({ ...editForm, assignee: e.target.value })}
-                placeholder="Leave blank to unassign"
-              />
+              <select
+                key={`assignee-${editForm.assignee_id ?? 'none'}-${users.length}`}
+                value={editForm.assignee_id != null ? String(editForm.assignee_id) : ''}
+                onChange={e => setEditForm({
+                  ...editForm,
+                  assignee_id: e.target.value ? Number(e.target.value) : null,
+                })}
+              >
+                <option value="">Unassigned</option>
+                {users.map(u => (
+                  <option key={u.id} value={String(u.id)}>
+                    {u.display_name ?? u.email}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="modal-actions">
               <button className="btn-ghost" onClick={() => setEditing(null)}>Cancel</button>

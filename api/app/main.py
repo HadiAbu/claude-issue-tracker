@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import SessionLocal
-from app.routers import auth, comments, issues, projects, stats
+from app.routers import auth, comments, issues, projects, stats, users
 from app.seed import seed_if_empty
 
 
@@ -41,6 +41,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(users.router)
 app.include_router(projects.router)
 app.include_router(issues.router)
 app.include_router(comments.router)

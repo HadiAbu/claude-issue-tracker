@@ -23,6 +23,28 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
+export type User = {
+  id: number
+  email: string
+  display_name: string | null
+  avatar_color: string
+  created_at: string
+}
+
+export type UserCreate = {
+  email: string
+  password: string
+  display_name?: string | null
+  avatar_color?: string
+}
+
+export type UserUpdate = {
+  display_name?: string | null
+  email?: string
+  avatar_color?: string
+  password?: string
+}
+
 export type Project = {
   id: number
   owner_id: number
@@ -45,7 +67,9 @@ export type Issue = {
   description: string
   status: Status
   priority: Priority
-  assignee: string | null
+  assignee_id: number | null
+  assignee_email: string | null
+  assignee_avatar_color: string | null
   created_at: string
   updated_at: string
   closed_at: string | null
@@ -79,6 +103,13 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  users: () => http<User[]>('/users'),
+  createUser: (data: UserCreate) =>
+    http<User>('/users', { method: 'POST', body: JSON.stringify(data) }),
+  updateUser: (id: number, data: UserUpdate) =>
+    http<User>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteUser: (id: number) => http<void>(`/users/${id}`, { method: 'DELETE' }),
+
   projects: () => http<Project[]>('/projects'),
   project: (id: number) => http<Project>(`/projects/${id}`),
   createProject: (data: { key: string; name: string; description?: string }) =>
@@ -96,6 +127,12 @@ export const api = {
   updateIssue: (id: number, data: Partial<Issue>) =>
     http<Issue>(`/issues/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteIssue: (id: number) => http<void>(`/issues/${id}`, { method: 'DELETE' }),
+
+  projectMembers: (projectId: number) => http<User[]>(`/projects/${projectId}/members`),
+  addProjectMember: (projectId: number, userId: number) =>
+    http<User>(`/projects/${projectId}/members`, { method: 'POST', body: JSON.stringify({ user_id: userId }) }),
+  removeProjectMember: (projectId: number, userId: number) =>
+    http<void>(`/projects/${projectId}/members/${userId}`, { method: 'DELETE' }),
 
   stats: (projectId: number) => http<ProjectStats>(`/projects/${projectId}/stats`),
 }

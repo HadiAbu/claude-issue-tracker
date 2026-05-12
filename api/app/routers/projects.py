@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
-from app.models import Project, User
-from app.schemas import ProjectCreate, ProjectRead, ProjectUpdate
+from app.models import Project, ProjectMember, User
+from app.schemas import ProjectCreate, ProjectMemberAdd, ProjectRead, ProjectUpdate, UserRead
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -30,7 +30,8 @@ def _get_owned(project_id: int, user_id: int, db: Session) -> Project:
 def list_projects(current_user: CurrentUser, db: Session = Depends(get_db)):
     return (
         db.query(Project)
-        .filter(Project.owner_id == current_user.id)
+        .join(ProjectMember, Project.id == ProjectMember.project_id)
+        .filter(ProjectMember.user_id == current_user.id)
         .order_by(Project.created_at.desc())
         .all()
     )
@@ -46,6 +47,8 @@ def create_project(payload: ProjectCreate, current_user: CurrentUser, db: Sessio
         db.rollback()
         raise HTTPException(409, f"Project key '{payload.key}' already exists")
     db.refresh(project)
+    db.add(ProjectMember(project_id=project.id, user_id=current_user.id))
+    db.commit()
     return project
 
 
@@ -74,4 +77,50 @@ def update_project(project_id: int, payload: ProjectUpdate, current_user: Curren
 def delete_project(project_id: int, current_user: CurrentUser, db: Session = Depends(get_db)):
     project = _get_owned(project_id, current_user.id, db)
     db.delete(project)
+    db.commit()
+
+
+# ── Members ───────────────────────────────────────────────────────────────────
+
+@router.get("/{project_id}/members", response_model=list[UserRead])
+def list_members(project_id: int, current_user: CurrentUser, db: Session = Depends(get_db)):
+    _get_owned(project_id, current_user.id, db)
+    return (
+        db.query(User)
+        .join(ProjectMember, User.id == ProjectMember.user_id)
+        .filter(ProjectMember.project_id == project_id)
+        .order_by(User.email)
+        .all()
+    )
+
+
+@router.post("/{project_id}/members", response_model=UserRead, status_code=201)
+def add_member(project_id: int, payload: ProjectMemberAdd, current_user: CurrentUser, db: Session = Depends(get_db)):
+    _get_owned(project_id, current_user.id, db)
+    user = db.query(User).filter(User.id == payload.user_id).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+    already = db.query(ProjectMember).filter(
+        ProjectMember.project_id == project_id,
+        ProjectMember.user_id == payload.user_id,
+    ).first()
+    if already:
+        raise HTTPException(409, "User is already a member")
+    db.add(ProjectMember(project_id=project_id, user_id=payload.user_id))
+    db.commit()
+    return user
+
+
+@router.delete("/{project_id}/members/{user_id}", status_code=204)
+def remove_member(project_id: int, user_id: int, current_user: CurrentUser, db: Session = Depends(get_db)):
+    project = _get_owned(project_id, current_user.id, db)
+    if user_id == project.owner_id:
+        raise HTTPException(400, "Cannot remove the project owner")
+    member = db.query(ProjectMember).filter(
+        ProjectMember.project_id == project_id,
+        ProjectMember.user_id == user_id,
+    ).first()
+    if not member:
+        raise HTTPException(404, "Member not found")
+    db.delete(member)
     db.commit()

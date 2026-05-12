@@ -10,12 +10,23 @@ from app.models import Priority, Status
 class UserCreate(BaseModel):
     email: str = Field(min_length=1, max_length=254)
     password: str = Field(min_length=8)
+    display_name: str | None = Field(default=None, max_length=120)
+    avatar_color: str = "#5b6cff"
+
+
+class UserUpdate(BaseModel):
+    display_name: str | None = Field(default=None, max_length=120)
+    email: str | None = Field(default=None, min_length=1, max_length=254)
+    avatar_color: str | None = None
+    password: str | None = Field(default=None, min_length=8)
 
 
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     email: str
+    display_name: str | None
+    avatar_color: str
     created_at: datetime
 
 
@@ -58,7 +69,7 @@ class IssueCreate(BaseModel):
     description: str = ""
     status: Status = Status.todo
     priority: Priority = Priority.medium
-    assignee: str | None = None
+    assignee_id: int | None = None
 
 
 class IssueUpdate(BaseModel):
@@ -66,7 +77,7 @@ class IssueUpdate(BaseModel):
     description: str | None = None
     status: Status | None = None
     priority: Priority | None = None
-    assignee: str | None = None
+    assignee_id: int | None = None
     archived: bool | None = None
 
 
@@ -78,7 +89,9 @@ class IssueRead(BaseModel):
     description: str
     status: Status
     priority: Priority
-    assignee: str | None
+    assignee_id: int | None
+    assignee_email: str | None
+    assignee_avatar_color: str | None
     created_at: datetime
     updated_at: datetime
     closed_at: datetime | None
@@ -100,6 +113,12 @@ class CommentRead(BaseModel):
     author: str
     body: str
     created_at: datetime
+
+
+# ── Project members ──────────────────────────────────────────────────────────
+
+class ProjectMemberAdd(BaseModel):
+    user_id: int
 
 
 # ── Stats ─────────────────────────────────────────────────────────────────────
