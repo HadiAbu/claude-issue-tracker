@@ -17,6 +17,12 @@ jobs:
       packages: write
 
     steps:
+      - name: Lowercase repo name
+        uses: ASzc/change-string-case-action@v6
+        id: lowercase
+        with:
+          string: ${{ github.repository }}
+          
       - name: Checkout repository
         uses: actions/checkout@v4
 
