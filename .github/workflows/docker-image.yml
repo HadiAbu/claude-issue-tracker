@@ -6,8 +6,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  API_IMAGE_NAME: ${{ github.repository }}-api
-  WEB_IMAGE_NAME: ${{ github.repository }}-web
+  API_IMAGE_NAME: ghcr.io/hadiabu/claude-issue-tracker-api
+  WEB_IMAGE_NAME: ghcr.io/hadiabu/claude-issue-tracker-web
 
 jobs:
   build-and-push:
@@ -21,7 +21,7 @@ jobs:
         uses: ASzc/change-string-case-action@v6
         id: lowercase
         with:
-          string: ${{ github.repository }}
+          string: ghcr.io/hadiabu/claude-issue-tracker
           
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -48,5 +48,3 @@ jobs:
           context: ./web
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.WEB_IMAGE_NAME }}:latest
-          build-args: |
-            VITE_API_URL=https://your-api-domain.com
