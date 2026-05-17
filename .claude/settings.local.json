@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(gh pr *)"
+      "Bash(gh pr *)",
+      "Bash(docker compose *)",
+      "Bash(docker builder *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(curl *)"
     ]
   }
 }
