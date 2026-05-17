@@ -50,7 +50,7 @@ jobs:
             docker pull $REGISTRY/$WEB_IMAGE_NAME:latest
             docker stop issue-tracker-api issue-tracker-web || true
             docker rm issue-tracker-api issue-tracker-web || true
-            docker run -d --name issue-tracker-api -p 3000:3000 --restart always $REGISTRY/$API_IMAGE_NAME:latest
+            docker run -d --name issue-tracker-api -p 8000:8000 --restart always $REGISTRY/$API_IMAGE_NAME:latest
             docker run -d --name issue-tracker-web -p 5173:5173 --restart always $REGISTRY/$WEB_IMAGE_NAME:latest
             docker image prune -f
 
