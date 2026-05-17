@@ -49,4 +49,4 @@ jobs:
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.WEB_IMAGE_NAME }}:latest
           build-args: |
-            VITE_API_URL=http://13.61.24.112:8000
+            VITE_API_URL=http://13.61.24.112:3000
