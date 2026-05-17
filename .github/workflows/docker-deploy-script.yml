@@ -1,0 +1,40 @@
+name: CD - Deploy to EC2
+
+on:
+  workflow_run:
+    workflows: ["CI - Build and Push"] # 👈 Must match the 'name' of your first file exactly
+    types:
+      - completed # 👈 Triggers when the build workflow finishes
+
+env:
+  REGISTRY: ghcr.io
+  API_IMAGE_NAME: hadiabu/claude-issue-tracker-api
+  WEB_IMAGE_NAME: hadiabu/claude-issue-tracker-web
+
+jobs:
+  deploy-to-server:
+    runs-on: ubuntu-latest
+    # ⚠️ CRITICAL: This conditional guarantees it ONLY runs if the build actually succeeded!
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    
+    steps:
+      - name: Execute remote SSH commands to deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: REGISTRY,API_IMAGE_NAME,WEB_IMAGE_NAME,GHCR_TOKEN,GITHUB_ACTOR
+          script: |
+            echo "$GHCR_TOKEN" | docker login $REGISTRY -u $GITHUB_ACTOR --password-stdin
+            
+            docker pull $REGISTRY/$API_IMAGE_NAME:latest
+            docker pull $REGISTRY/$WEB_IMAGE_NAME:latest
+            
+            docker stop issue-tracker-api issue-tracker-web || true
+            docker rm issue-tracker-api issue-tracker-web || true
+            
+            docker run -d --name issue-tracker-api -p 3000:3000 --restart always $REGISTRY/$API_IMAGE_NAME:latest
+            docker run -d --name issue-tracker-web -p 5173:5173 --restart always $REGISTRY/$WEB_IMAGE_NAME:latest
+            
+            docker image prune -f
