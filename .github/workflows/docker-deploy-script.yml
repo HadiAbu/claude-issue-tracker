@@ -18,6 +18,25 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     
     steps:
+      - name: Get GitHub Runner Public IP
+        id: ip
+        run: echo "ipv4=$(curl -s https://api.ipify.org)" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-north-1 # 👈 Change to your actual AWS region
+
+      - name: Open Port 22 in AWS Security Group
+        run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id ${{ secrets.AWS_SECURITY_GROUP_ID }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.ip.outputs.ipv4 }}/32
+
       - name: Execute remote SSH commands to deploy
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -27,14 +46,19 @@ jobs:
           envs: REGISTRY,API_IMAGE_NAME,WEB_IMAGE_NAME,GHCR_TOKEN,GITHUB_ACTOR
           script: |
             echo "$GHCR_TOKEN" | docker login $REGISTRY -u $GITHUB_ACTOR --password-stdin
-            
             docker pull $REGISTRY/$API_IMAGE_NAME:latest
             docker pull $REGISTRY/$WEB_IMAGE_NAME:latest
-            
             docker stop issue-tracker-api issue-tracker-web || true
             docker rm issue-tracker-api issue-tracker-web || true
-            
             docker run -d --name issue-tracker-api -p 3000:3000 --restart always $REGISTRY/$API_IMAGE_NAME:latest
             docker run -d --name issue-tracker-web -p 5173:5173 --restart always $REGISTRY/$WEB_IMAGE_NAME:latest
-            
             docker image prune -f
+
+      - name: Close Port 22 in AWS Security Group (Always Runs)
+        if: always() # 👈 Guarantees the door shuts even if the deploy steps fail
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id ${{ secrets.AWS_SECURITY_GROUP_ID }} \
+            --protocol tcp \
+            --port 22 \
+            --cidr ${{ steps.ip.outputs.ipv4 }}/32
