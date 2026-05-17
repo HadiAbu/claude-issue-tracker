@@ -48,3 +48,5 @@ jobs:
           context: ./web
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.WEB_IMAGE_NAME }}:latest
+          build-args: |
+            VITE_API_URL=https://13.61.24.112
