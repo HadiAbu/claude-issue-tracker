@@ -45,14 +45,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           envs: REGISTRY,API_IMAGE_NAME,WEB_IMAGE_NAME,GHCR_TOKEN,GITHUB_ACTOR
           script: |
-            echo "$GHCR_TOKEN" | docker login $REGISTRY -u $GITHUB_ACTOR --password-stdin
-            docker pull $REGISTRY/$API_IMAGE_NAME:latest
-            docker pull $REGISTRY/$WEB_IMAGE_NAME:latest
-            docker stop issue-tracker-api issue-tracker-web || true
-            docker rm issue-tracker-api issue-tracker-web || true
-            docker run -d --name issue-tracker-api -p 8000:8000 --restart always $REGISTRY/$API_IMAGE_NAME:latest
-            docker run -d --name issue-tracker-web -p 5173:5173 --restart always $REGISTRY/$WEB_IMAGE_NAME:latest
-            docker image prune -f
+            docker compose -f /home/${{ secrets.EC2_USERNAME }}/projects/claude-issue-tracker/docker-compose.prod.yml up -d
 
       - name: Close Port 22 in AWS Security Group (Always Runs)
         if: always() # 👈 Guarantees the door shuts even if the deploy steps fail
