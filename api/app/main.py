@@ -35,7 +35,7 @@ app = FastAPI(title="Issue Tracker API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins.split(","),
+    allow_origins=[settings.cors_origins[0]],
     allow_methods=["*"],
     allow_headers=["*"],
 )
