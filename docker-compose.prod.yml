@@ -15,6 +15,7 @@ services:
 
   api:
     image: ghcr.io/hadiabu/claude-issue-tracker-api:latest
+    pull_policy: always
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-tracker}:${POSTGRES_PASSWORD:-tracker}@db:5432/${POSTGRES_DB:-tracker}
       SEED_ON_START: "true"
@@ -27,6 +28,7 @@ services:
 
   web:
     image: ghcr.io/hadiabu/claude-issue-tracker-web:latest
+    pull_policy: always
     ports:
       - "5173:5173"
     depends_on:
