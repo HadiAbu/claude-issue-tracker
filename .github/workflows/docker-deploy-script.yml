@@ -45,7 +45,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           envs: REGISTRY,API_IMAGE_NAME,WEB_IMAGE_NAME,GHCR_TOKEN,GITHUB_ACTOR
           script: |
-            docker compose -f /home/${{ secrets.EC2_USERNAME }}/projects/claude-issue-tracker/docker-compose.prod.yml up -d
+            cd /home/${{ secrets.EC2_USERNAME }}/projects/claude-issue-tracker && git pull && docker compose -f docker-compose.prod.yml up -d
 
       - name: Close Port 22 in AWS Security Group (Always Runs)
         if: always() # 👈 Guarantees the door shuts even if the deploy steps fail
